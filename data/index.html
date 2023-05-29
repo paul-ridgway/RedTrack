@@ -1,0 +1,53 @@
+<html>
+
+<head>
+  <title>RedTrack</title>
+  <style>
+    html,
+    body {
+      font-family: Verdana, Geneva, Tahoma, sans-serif;
+      font-size: 12pt;
+    }
+
+    pre {
+      background-color: #eee;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+  <pre id="data">
+        Hello, Red!
+    </pre>
+
+
+  <script>
+    // self executing function here
+    (function () {
+      const data = document.getElementById('data');
+      data.innerHTML = 'Loading...';
+
+      function update() {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/gps', true);
+        xhr.send();
+
+        xhr.onreadystatechange = processRequest;
+
+        function processRequest(e) {
+          if (xhr.readyState == 4 && xhr.status == 200) {
+            var response = JSON.parse(xhr.responseText);
+            data.innerHTML = JSON.stringify(response, null, 2);
+            setTimeout(() => update(), 250);
+          }
+        }
+      }
+      update();
+    })();
+  </script>
+</body>
+
+</html>
