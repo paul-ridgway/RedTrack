@@ -1,4 +1,5 @@
 Import("env")
+from os.path import isfile
 import os
 
 print("Current CLI targets", COMMAND_LINE_TARGETS)
@@ -73,3 +74,17 @@ env.AddPreAction("$BUILD_DIR/spiffs.bin", before_build_spiffs)
 #         "$BUILD_DIR/${PROGNAME}.elf", "$BUILD_DIR/${PROGNAME}.hex"
 #     ]), "Building $BUILD_DIR/${PROGNAME}.hex")
 # )
+
+assert isfile(".env")
+try:
+  f = open(".env", "r")
+  lines = f.readlines()
+  envs = []
+  for line in lines:
+    envs.append("-D{}".format(line.strip()))
+    print("Adding build flag: {}".format(line.strip()))
+  env.Append(BUILD_FLAGS=envs)
+except IOError:
+  print("File .env not accessible",)
+finally:
+  f.close()

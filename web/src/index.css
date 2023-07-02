@@ -7,8 +7,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-pre {
-  background-color: #eee;
+.map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+}
+
+.data {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: #ffffffaa;
   padding: 10px;
   border-radius: 5px;
+  z-index: 1000;
 }

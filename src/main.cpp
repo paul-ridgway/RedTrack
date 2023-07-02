@@ -50,17 +50,6 @@ void setupHttp()
         serializeJson(doc, out);
         request->send(200, "text/json", out); });
 
-  // // Send a POST request to <IP>/post with a form field message set to <message>
-  // server.on("/post", HTTP_POST, [](AsyncWebServerRequest *request)
-  //           {
-  //     String message;
-  //     if (request->hasParam(PARAM_MESSAGE, true)) {
-  //         message = request->getParam(PARAM_MESSAGE, true)->value();
-  //     } else {
-  //         message = "No message sent";
-  //     }
-  //     request->send(200, "text/plain", "Hello, POST: " + message); });
-
   server.onNotFound(notFound);
 
   server.begin();
@@ -72,7 +61,7 @@ void setup()
 {
   Serial.begin(115200);
   Serial0.begin(57600);
-
+  pinMode(A0, INPUT);
   Serial.println(F("DeviceExample.ino"));
   Serial.println(F("A simple demonstration of TinyGPSPlus with an attached GPS module"));
   Serial.print(F("Testing TinyGPSPlus library v. "));
@@ -85,7 +74,7 @@ void setup()
   Serial.println();
   Serial.println("Configuring access point...");
 
-  // You can remove the password parameter if you want the AP to be open.
+  // No gateway so the connecting device can route to the internet independently
   WiFi.softAPConfig(IPAddress(192, 168, 123, 1), IPAddress(), IPAddress(255, 255, 255, 0));
   WiFi.softAP(ssid, password);
   IPAddress myIP = WiFi.softAPIP();
@@ -103,18 +92,55 @@ void setup()
   Serial.println("Server started");
 }
 
-void displayInfo()
+float highestSpeedMph = 0.0;
+double lastLat = 0.0;
+double lastLng = 0.0;
+double distance = 0.0;
+void updateGps()
 {
 
   if (gps.location.isValid())
   {
     doc["lat"] = gps.location.lat();
     doc["lng"] = gps.location.lng();
+    if (gps.hdop.hdop() <= 10)
+    {
+      if (lastLat != 0.0 && lastLng != 0.0)
+      {
+        float deltaDist = TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), lastLat, lastLng);
+        distance += deltaDist;
+        lastLat = gps.location.lat();
+        lastLng = gps.location.lng();
+      }
+      else
+      {
+        lastLat = gps.location.lat();
+        lastLng = gps.location.lng();
+      }
+    }
   }
   else
   {
     doc["lat"] = 0.0;
     doc["lng"] = 0.0;
+  }
+
+  if (gps.hdop.isValid())
+  {
+    doc["hdop"] = gps.hdop.hdop();
+  }
+  else
+  {
+    doc["hdop"] = 0.0;
+  }
+
+  if (gps.altitude.isValid())
+  {
+    doc["altitude"] = gps.altitude.meters();
+  }
+  else
+  {
+    doc["altitude"] = 0.0;
   }
 
   if (gps.date.isValid())
@@ -147,16 +173,17 @@ void displayInfo()
 
   if (gps.speed.isValid())
   {
-    doc["kmph"] = gps.speed.kmph();
     doc["mph"] = gps.speed.mph();
-    doc["mps"] = gps.speed.mps();
+    if (gps.speed.mph() > highestSpeedMph)
+    {
+      highestSpeedMph = gps.speed.mph();
+    }
   }
   else
   {
-    doc["kmph"] = 0.0;
     doc["mph"] = 0.0;
-    doc["mps"] = 0.0;
   }
+  doc["maxMph"] = highestSpeedMph;
 
   if (gps.satellites.isValid())
   {
@@ -166,6 +193,16 @@ void displayInfo()
   {
     doc["satellites"] = 0;
   }
+
+  if (gps.altitude.isValid())
+  {
+    doc["altitude"] = gps.altitude.meters();
+  }
+  else
+  {
+    doc["altitude"] = 0.0;
+  }
+  doc["distance"] = distance;
 }
 
 void updateGPS()
@@ -174,7 +211,7 @@ void updateGPS()
   while (Serial0.available() > 0)
     if (gps.encode(Serial0.read()))
     {
-      displayInfo();
+      updateGps();
     }
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
@@ -197,6 +234,14 @@ void loop()
     serializeJson(doc, out);
     Serial.println(out);
   }
+
+  uint32_t Vbatt = 0;
+  for (int i = 0; i < 16; i++)
+  {
+    Vbatt = Vbatt + analogReadMilliVolts(A0); // ADC with correction
+  }
+  float Vbattf = 2 * Vbatt / 16 / 1000.0; // attenuation ratio 1/2, mV --> V
+  doc["batt"] = round(Vbattf * 100) / 100.0;
 
   digitalWrite(LED_BUILTIN, millis() % 1000 < 500 ? HIGH : LOW);
 }
